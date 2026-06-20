@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Search, Wind, Droplets, Cloud, Sun, CloudRain, CloudLightning, Snowflake } from 'lucide-react';
+import { Search, Wind, Droplets, Cloud, Sun, CloudRain, CloudLightning, Snowflake, Thermometer, ArrowUp, ArrowDown, Gauge, SunDim } from 'lucide-react';
 import './App.css';
 
 const App = () => {
@@ -8,18 +8,17 @@ const App = () => {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
 
-  // Default city on load
   useEffect(() => {
     fetchWeather('New Delhi');
   }, []);
 
   const getWeatherIcon = (code) => {
-    if (code === 0) return <Sun size={80} color="#FFD700" />;
-    if (code >= 1 && code <= 3) return <Cloud size={80} color="#E0E0E0" />;
-    if (code >= 51 && code <= 67) return <CloudRain size={80} color="#4facfe" />;
-    if (code >= 71 && code <= 77) return <Snowflake size={80} color="#ffffff" />;
-    if (code >= 95 && code <= 99) return <CloudLightning size={80} color="#FFa500" />;
-    return <Cloud size={80} />;
+    if (code === 0) return <Sun size={90} color="#FFD700" />;
+    if (code >= 1 && code <= 3) return <Cloud size={90} color="#E0E0E0" />;
+    if (code >= 51 && code <= 67) return <CloudRain size={90} color="#4facfe" />;
+    if (code >= 71 && code <= 77) return <Snowflake size={90} color="#ffffff" />;
+    if (code >= 95 && code <= 99) return <CloudLightning size={90} color="#FFa500" />;
+    return <Cloud size={90} />;
   };
 
   const getWeatherDescription = (code) => {
@@ -39,7 +38,6 @@ const App = () => {
     setError(null);
 
     try {
-      // 1. Get coordinates for the city
       const geoRes = await fetch(`https://geocoding-api.open-meteo.com/v1/search?name=${searchCity}&count=1`);
       const geoData = await geoRes.json();
 
@@ -49,19 +47,23 @@ const App = () => {
 
       const location = geoData.results[0];
 
-      // 2. Get weather data using coordinates
       const weatherRes = await fetch(
-        `https://api.open-meteo.com/v1/forecast?latitude=${location.latitude}&longitude=${location.longitude}&current_weather=true&hourly=relativehumidity_2m`
+        `https://api.open-meteo.com/v1/forecast?latitude=${location.latitude}&longitude=${location.longitude}&current=temperature_2m,relative_humidity_2m,apparent_temperature,weather_code,wind_speed_10m,surface_pressure&daily=temperature_2m_max,temperature_2m_min,uv_index_max&timezone=auto`
       );
       const weatherData = await weatherRes.json();
 
       setWeather({
         name: location.name,
         country: location.country,
-        temp: weatherData.current_weather.temperature,
-        windspeed: weatherData.current_weather.windspeed,
-        code: weatherData.current_weather.weathercode,
-        humidity: weatherData.hourly.relativehumidity_2m[new Date().getHours()] || 50, // Approximation using hourly data
+        temp: weatherData.current.temperature_2m,
+        feelsLike: weatherData.current.apparent_temperature,
+        humidity: weatherData.current.relative_humidity_2m,
+        windspeed: weatherData.current.wind_speed_10m,
+        pressure: weatherData.current.surface_pressure,
+        code: weatherData.current.weather_code,
+        high: weatherData.daily.temperature_2m_max[0],
+        low: weatherData.daily.temperature_2m_min[0],
+        uv: weatherData.daily.uv_index_max[0]
       });
     } catch (err) {
       setError(err.message || 'Failed to fetch weather data.');
@@ -84,7 +86,7 @@ const App = () => {
           <input
             type="text"
             className="search-input"
-            placeholder="Enter city name..."
+            placeholder="Search for any city..."
             value={city}
             onChange={(e) => setCity(e.target.value)}
           />
@@ -100,34 +102,64 @@ const App = () => {
         {weather && !loading && (
           <div className="weather-info">
             <h2 className="location-name">
-              {weather.name}, <span style={{fontSize: '1.2rem', color: 'var(--text-secondary)'}}>{weather.country}</span>
+              {weather.name}, <span className="country-badge">{weather.country}</span>
             </h2>
             
-            <div style={{ margin: '20px 0' }}>
+            <div className="main-weather">
               {getWeatherIcon(weather.code)}
+              <div className="temperature-container">
+                <div className="temperature">
+                  {Math.round(weather.temp)}<span className="unit">°C</span>
+                </div>
+                <div className="weather-description">
+                  {getWeatherDescription(weather.code)}
+                </div>
+              </div>
             </div>
 
-            <div className="temperature">
-              {Math.round(weather.temp)}<span className="unit">°C</span>
-            </div>
-            
-            <div className="weather-description">
-              {getWeatherDescription(weather.code)}
+            <div className="high-low-container">
+               <span className="hl-badge"><ArrowUp size={16}/> {Math.round(weather.high)}°</span>
+               <span className="hl-badge"><ArrowDown size={16}/> {Math.round(weather.low)}°</span>
             </div>
 
-            <div className="weather-details">
-              <div className="detail-item">
-                <Droplets className="detail-icon" size={28} />
+            <div className="details-grid">
+              <div className="detail-card">
+                <Thermometer className="detail-icon" size={24} />
+                <div className="detail-text">
+                  <span className="detail-label">Feels Like</span>
+                  <span className="detail-value">{Math.round(weather.feelsLike)}°C</span>
+                </div>
+              </div>
+
+              <div className="detail-card">
+                <Droplets className="detail-icon" size={24} />
                 <div className="detail-text">
                   <span className="detail-label">Humidity</span>
                   <span className="detail-value">{weather.humidity}%</span>
                 </div>
               </div>
-              <div className="detail-item">
-                <Wind className="detail-icon" size={28} />
+
+              <div className="detail-card">
+                <Wind className="detail-icon" size={24} />
                 <div className="detail-text">
-                  <span className="detail-label">Wind Speed</span>
+                  <span className="detail-label">Wind</span>
                   <span className="detail-value">{weather.windspeed} km/h</span>
+                </div>
+              </div>
+
+              <div className="detail-card">
+                <SunDim className="detail-icon" size={24} />
+                <div className="detail-text">
+                  <span className="detail-label">UV Index</span>
+                  <span className="detail-value">{weather.uv || 'N/A'}</span>
+                </div>
+              </div>
+
+              <div className="detail-card">
+                <Gauge className="detail-icon" size={24} />
+                <div className="detail-text">
+                  <span className="detail-label">Pressure</span>
+                  <span className="detail-value">{Math.round(weather.pressure)} hPa</span>
                 </div>
               </div>
             </div>
