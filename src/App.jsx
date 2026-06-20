@@ -1,6 +1,8 @@
 import React, { useState, useEffect } from 'react';
-import { Search, Wind, Droplets, Cloud, Sun, CloudRain, CloudLightning, Snowflake, Thermometer, ArrowUp, ArrowDown, Gauge, SunDim } from 'lucide-react';
+import { Search, Wind, Droplets, Cloud, Sun, CloudRain, CloudLightning, Snowflake, Thermometer, ArrowUp, ArrowDown, Gauge, Eye } from 'lucide-react';
 import './App.css';
+
+const API_KEY = 'ae4bb30524602a1f1de53a3c19880829';
 
 const App = () => {
   const [city, setCity] = useState('');
@@ -13,23 +15,12 @@ const App = () => {
   }, []);
 
   const getWeatherIcon = (code) => {
-    if (code === 0) return <Sun size={90} color="#FFD700" />;
-    if (code >= 1 && code <= 3) return <Cloud size={90} color="#E0E0E0" />;
-    if (code >= 51 && code <= 67) return <CloudRain size={90} color="#4facfe" />;
-    if (code >= 71 && code <= 77) return <Snowflake size={90} color="#ffffff" />;
-    if (code >= 95 && code <= 99) return <CloudLightning size={90} color="#FFa500" />;
+    if (code === 800) return <Sun size={90} color="#FFD700" />;
+    if (code >= 801 && code <= 804) return <Cloud size={90} color="#E0E0E0" />;
+    if (code >= 300 && code < 600) return <CloudRain size={90} color="#4facfe" />;
+    if (code >= 600 && code < 700) return <Snowflake size={90} color="#ffffff" />;
+    if (code >= 200 && code < 300) return <CloudLightning size={90} color="#FFa500" />;
     return <Cloud size={90} />;
-  };
-
-  const getWeatherDescription = (code) => {
-    if (code === 0) return 'Clear Sky';
-    if (code === 1) return 'Mainly Clear';
-    if (code === 2) return 'Partly Cloudy';
-    if (code === 3) return 'Overcast';
-    if (code >= 51 && code <= 67) return 'Rain / Drizzle';
-    if (code >= 71 && code <= 77) return 'Snow';
-    if (code >= 95 && code <= 99) return 'Thunderstorm';
-    return 'Cloudy';
   };
 
   const fetchWeather = async (searchCity) => {
@@ -38,32 +29,29 @@ const App = () => {
     setError(null);
 
     try {
-      const geoRes = await fetch(`https://geocoding-api.open-meteo.com/v1/search?name=${searchCity}&count=1`);
-      const geoData = await geoRes.json();
+      const response = await fetch(
+        `https://api.openweathermap.org/data/2.5/weather?q=${searchCity}&appid=${API_KEY}&units=metric`
+      );
+      
+      const data = await response.json();
 
-      if (!geoData.results || geoData.results.length === 0) {
-        throw new Error('City not found. Please try another name.');
+      if (data.cod !== 200) {
+        throw new Error(data.message || 'City not found');
       }
 
-      const location = geoData.results[0];
-
-      const weatherRes = await fetch(
-        `https://api.open-meteo.com/v1/forecast?latitude=${location.latitude}&longitude=${location.longitude}&current=temperature_2m,relative_humidity_2m,apparent_temperature,weather_code,wind_speed_10m,surface_pressure&daily=temperature_2m_max,temperature_2m_min,uv_index_max&timezone=auto`
-      );
-      const weatherData = await weatherRes.json();
-
       setWeather({
-        name: location.name,
-        country: location.country,
-        temp: weatherData.current.temperature_2m,
-        feelsLike: weatherData.current.apparent_temperature,
-        humidity: weatherData.current.relative_humidity_2m,
-        windspeed: weatherData.current.wind_speed_10m,
-        pressure: weatherData.current.surface_pressure,
-        code: weatherData.current.weather_code,
-        high: weatherData.daily.temperature_2m_max[0],
-        low: weatherData.daily.temperature_2m_min[0],
-        uv: weatherData.daily.uv_index_max[0]
+        name: data.name,
+        country: data.sys.country,
+        temp: data.main.temp,
+        feelsLike: data.main.feels_like,
+        humidity: data.main.humidity,
+        windspeed: (data.wind.speed * 3.6).toFixed(1), // convert m/s to km/h
+        pressure: data.main.pressure,
+        code: data.weather[0].id,
+        description: data.weather[0].description,
+        high: data.main.temp_max,
+        low: data.main.temp_min,
+        visibility: (data.visibility / 1000).toFixed(1) // convert m to km
       });
     } catch (err) {
       setError(err.message || 'Failed to fetch weather data.');
@@ -97,7 +85,7 @@ const App = () => {
 
         {loading && <div className="loading">Fetching Weather...</div>}
 
-        {error && <div className="error-message">{error}</div>}
+        {error && <div className="error-message" style={{textTransform: 'capitalize'}}>{error}</div>}
 
         {weather && !loading && (
           <div className="weather-info">
@@ -111,8 +99,8 @@ const App = () => {
                 <div className="temperature">
                   {Math.round(weather.temp)}<span className="unit">°C</span>
                 </div>
-                <div className="weather-description">
-                  {getWeatherDescription(weather.code)}
+                <div className="weather-description" style={{textTransform: 'capitalize'}}>
+                  {weather.description}
                 </div>
               </div>
             </div>
@@ -148,10 +136,10 @@ const App = () => {
               </div>
 
               <div className="detail-card">
-                <SunDim className="detail-icon" size={24} />
+                <Eye className="detail-icon" size={24} />
                 <div className="detail-text">
-                  <span className="detail-label">UV Index</span>
-                  <span className="detail-value">{weather.uv || 'N/A'}</span>
+                  <span className="detail-label">Visibility</span>
+                  <span className="detail-value">{weather.visibility} km</span>
                 </div>
               </div>
 
